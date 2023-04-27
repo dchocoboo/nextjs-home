@@ -2,10 +2,11 @@
 import Link from "next/link";
 
 function Header() {
+  
   return (
     <nav>
       <Link href="/">
-      Home
+        Home
       </Link>
       <Link href="/blog">
       Blog
