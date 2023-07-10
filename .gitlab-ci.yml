@@ -1,0 +1,72 @@
+include:
+  - project: 'wog/gvt/gds-ace/general/templates'
+    file: '/gitlab-ci/nodejs/audit.yml'
+  - template: Security/SAST.gitlab-ci.yml
+
+image: public.ecr.aws/govtechsg/cicd-images:node-node-18.16.0_npm-9.5.1_yarn-1.22.19_awscli-2.11.25
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_FORCE_HTTPS: "true"
+  SITE_BASE_PATH: "/issuer"
+
+.custom-runner:
+  before_script:
+    - mkdir -p ~/.aws
+    - aws sts assume-role --role-arn $AWS_NONPROD_ROLE --role-session-name deployer --external-id $AWS_NONPROD_ROLE_EXTERNAL_ID > ~/.aws/session.json
+    - export AWS_ACCESS_KEY_ID=$(cat ~/.aws/session.json | jq -r '.Credentials.AccessKeyId')
+    - export AWS_SECRET_ACCESS_KEY=$(cat ~/.aws/session.json | jq -r '.Credentials.SecretAccessKey')
+    - export AWS_SESSION_TOKEN=$(cat ~/.aws/session.json | jq -r '.Credentials.SessionToken')
+  tags:
+    - oasis-37d2a508
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+
+stages:
+  - test
+  - build
+  - deploy
+
+sast:
+  stage: test
+
+audit:
+  stage: test
+  tags:
+    - oasis-37d2a508
+  extends:
+    - .audit
+
+test:
+  extends:
+    .custom-runner
+  stage: test
+  script:
+    - echo "ok"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+
+# build:
+#   extends:
+#     .custom-runner
+#   stage: build
+#   script:
+#     - npm ci
+#     - npm run build
+#     - npm run build:extras
+#     - cd .next/standalone
+#     - zip -q -r artifact.zip * .*
+#     - cd ../..
+#     - npx sls deploy --stage dev
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: always
+
